@@ -1,0 +1,124 @@
+Resources:
+  # Defining an EC2 instance resource
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-07d9b9ddc6cd8dd30 # us-east-1 Ubuntu 20.04 LTS AMI
+      InstanceType: t2.micro
+      Monitoring: true
+      Tags:
+        - Key: Name
+          Value: enigiocloudwatchsetupinstance
+
+  # Creating a CloudWatch alarm for CPU utilization
+  CPUUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "Alarm if CPU utilization exceeds 80%"
+      Namespace: "AWS/EC2"
+      MetricName: "CPUUtilization"
+      Dimensions:
+        - Name: "InstanceId"
+          Value: !Ref MyEC2Instance
+      Statistic: "Average"
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 80
+      ComparisonOperator: "GreaterThanThreshold"
+      AlarmActions:
+        - !Ref CPUUtilizationAlarmNotification
+
+  # Defining an SNS topic for CPUUtilizationAlarm notifications
+  CPUUtilizationAlarmNotification:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "CPUUtilizationAlarmNotification"
+  
+  # Defining an SNS subscription for email notifications
+  CPUUtilizationAlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      TopicArn: !Ref CPUUtilizationAlarmNotification
+      Endpoint: sthita.social@gmail.com
+
+  # Creating a CloudWatch dashboard to visualize EC2 instance metrics
+  MyDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: MyEC2Dashboard
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/EC2", "CPUUtilization", "InstanceId", "${MyEC2Instance}", { "label": "CPU Utilization", "color": "#ff9900" } ]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "us-east-1",
+                "title": "CPU Utilization"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/EC2", "StatusCheckFailed_System", "InstanceId", "${MyEC2Instance}", { "label": "Status Check Failed (System)", "color": "#ff0000" } ]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "us-east-1",
+                "title": "Status Check Failed (System)"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 12,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/EC2", "StatusCheckFailed", "InstanceId", "${MyEC2Instance}", { "label": "Status Check Failed", "color": "#ff0000" } ]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "us-east-1",
+                "title": "Status Check Failed"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 18,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/EC2", "CPUCreditBalance", "InstanceId", "${MyEC2Instance}", { "label": "CPU Credit Balance", "color": "#33cc33" } ]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "us-east-1",
+                "title": "CPU Credit Balance"
+              }
+            }
+          ]
+        }
+
+Outputs:
+  # Outputting the URL of the created CloudWatch Dashboard
+  DashboardURL:
+    Description: "URL of the created CloudWatch Dashboard"
+    Value: !Sub "https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=MyEC2Dashboard"
